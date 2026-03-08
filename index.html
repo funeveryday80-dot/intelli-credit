@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Intelli-Credit | AI-Powered Corporate Credit Appraisal</title>
+  <meta name="description"
+    content="Next-Gen AI-powered Corporate Credit Appraisal Engine for Indian lending institutions." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap"
+    rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles_patch7.css" />
+  <link rel="stylesheet" href="styles_patch8.css" />
+</head>
+
+<body>
+  <!-- Toast Container -->
+  <div id="toast-container"></div>
+
+  <!-- Floating Tooltip Box -->
+  <div id="tooltip-box" class="tooltip-box hidden"></div>
+
+  <!-- Command Palette (Ctrl+K) -->
+  <div id="cmd-palette" class="cmd-overlay hidden" onclick="closeCmdPalette()">
+    <div class="cmd-box" onclick="event.stopPropagation()">
+      <div class="cmd-search-row">
+        <span class="cmd-search-icon">⌘</span>
+        <input type="text" id="cmd-input" class="cmd-input" placeholder="Search pages, actions, companies…"
+          autocomplete="off" oninput="cmdSearch(this.value)" onkeydown="cmdKeyNav(event)" />
+        <kbd class="cmd-esc-hint">ESC</kbd>
+      </div>
+      <div id="cmd-results" class="cmd-results"></div>
+      <div class="cmd-footer">
+        <span><kbd>↑↓</kbd> navigate</span>
+        <span><kbd>↵</kbd> select</span>
+        <span><kbd>Esc</kbd> close</span>
+        <span><kbd>Ctrl+K</kbd> open</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- AI ANALYST CHAT (fixed floating — outside all modals) -->
+  <button id="ai-analyst-fab" class="ai-analyst-fab" onclick="toggleAIChat()" title="AI Analyst">
+    <span class="ai-fab-icon">🤖</span>
+    <span class="ai-fab-label">AI Analyst</span>
+    <span class="ai-fab-pulse"></span>
+  </button>
+  <div id="ai-chat-panel" class="ai-chat-panel hidden">
+    <div class="ai-chat-header">
+      <div class="ai-hdr-left">
+        <span class="ai-hdr-avatar">🤖</span>
+        <div>
+          <div class="ai-hdr-name">Credit AI Analyst</div>
+          <div class="ai-hdr-status">● Online — Powered by IntelliCredit®</div>
+        </div>
+      </div>
+      <div class="ai-hdr-actions">
+        <button class="ai-hdr-btn" onclick="clearAIChat()" title="Clear chat">🗑</button>
+        <button class="ai-hdr-btn" onclick="toggleAIChat()" title="Close">✕</button>
+      </div>
+    </div>
+    <div id="ai-chat-msgs" class="ai-chat-msgs"></div>
+    <div class="ai-quick-wrap">
+      <div class="ai-quick-label">Quick questions:</div>
+      <div class="ai-quick-btns" id="ai-quick-btns">
+        <button onclick="askAI('What are the main credit risks?')">🚨 Main Risks</button>
+        <button onclick="askAI('What is the credit recommendation?')">✅ Recommendation</button>
+        <button onclick="askAI('Explain DSCR and what it means here')">📊 DSCR</button>
+        <button onclick="askAI('What is the credit score and grade?')">⭐ Credit Score</button>
+        <button onclick="askAI('What is the collateral and security position?')">🏦 Security</button>
+        <button onclick="askAI('Explain the GST discrepancy risk')">🧳 GST Risk</button>
+        <button onclick="askAI('What are the financial highlights?')">📈 Financials</button>
+        <button onclick="askAI('What covenants should be applied?')">📜 Covenants</button>
+      </div>
+    </div>
+    <div class="ai-chat-input-row">
+      <input id="ai-chat-input" type="text" placeholder="Ask anything about this appraisal…"
+        onkeydown="if(event.key==='Enter')sendAIMsg()" autocomplete="off" />
+      <button class="ai-send-btn" onclick="sendAIMsg()">➤</button>
+    </div>
+  </div>
+
+
+  <!-- Onboarding Overlay -->
+  <div id="onboarding-overlay" class="onboarding-overlay hidden">
+    <div class="onboarding-backdrop"></div>
+    <div class="onboarding-card" id="onboarding-card">
+      <div class="onboarding-progress" id="onboarding-progress"></div>
+      <div class="onboarding-body">
+        <div class="onboarding-icon" id="ob-icon">👋</div>
+        <h3 id="ob-title">Welcome to IntelliCredit</h3>
+        <p id="ob-desc">The next-generation AI-powered corporate credit appraisal engine. Let's take a quick tour.</p>
+      </div>
+      <div class="onboarding-actions">
+        <button class="btn btn-ghost" onclick="skipOnboarding()">Skip Tour</button>
+        <button class="btn btn-primary" id="ob-next-btn" onclick="nextOnboardingStep()">Next →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loan Calculator Modal -->
+  <div id="loan-modal" class="modal-overlay hidden">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>🏦 Loan Repayment Calculator</h3>
+        <button class="modal-close" onclick="closeLoanModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="calc-grid">
+          <div class="calc-field">
+            <label>Loan Amount (₹ Cr)</label>
+            <input type="number" id="calc-amount" class="form-input" value="95" min="1" oninput="runCalc()" />
+          </div>
+          <div class="calc-field">
+            <label>Interest Rate (% p.a.)</label>
+            <input type="number" id="calc-rate" class="form-input" value="12.5" step="0.1" oninput="runCalc()" />
+          </div>
+          <div class="calc-field">
+            <label>Tenor (Months)</label>
+            <input type="number" id="calc-tenor" class="form-input" value="60" min="1" oninput="runCalc()" />
+          </div>
+          <div class="calc-field">
+            <label>Moratorium (Months)</label>
+            <input type="number" id="calc-moratorium" class="form-input" value="6" min="0" oninput="runCalc()" />
+          </div>
+        </div>
+        <div class="calc-summary" id="calc-summary"></div>
+        <div class="calc-schedule-wrapper">
+          <h4>Repayment Schedule</h4>
+          <div class="calc-schedule" id="calc-schedule"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stress Test Modal -->
+  <div id="stress-modal" class="modal-overlay hidden">
+    <div class="modal-box modal-wide">
+      <div class="modal-header">
+        <h3>🧪 Stress Test — What-If Scenario Analysis</h3>
+        <button class="modal-close" onclick="closeStressModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="stress-controls">
+          <div class="stress-row">
+            <label>Revenue Decline</label>
+            <input type="range" id="s-revenue" min="-50" max="0" value="0" class="slider" oninput="runStress()" />
+            <span id="s-revenue-val" class="slider-val">0%</span>
+          </div>
+          <div class="stress-row">
+            <label>Interest Rate Increase</label>
+            <input type="range" id="s-rate" min="0" max="5" value="0" step="0.5" class="slider" oninput="runStress()" />
+            <span id="s-rate-val" class="slider-val">+0%</span>
+          </div>
+          <div class="stress-row">
+            <label>Collateral Haircut Increase</label>
+            <input type="range" id="s-haircut" min="0" max="30" value="0" class="slider" oninput="runStress()" />
+            <span id="s-haircut-val" class="slider-val">+0%</span>
+          </div>
+          <div class="stress-row">
+            <label>Operating Cost Increase</label>
+            <input type="range" id="s-cost" min="0" max="30" value="0" class="slider" oninput="runStress()" />
+            <span id="s-cost-val" class="slider-val">+0%</span>
+          </div>
+        </div>
+        <div id="stress-results" class="stress-results"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="app">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="logo">
+          <span class="logo-icon">⚡</span>
+          <span class="logo-text">Intelli<span class="logo-accent">Credit</span></span>
+        </div>
+        <div class="session-badge">Session: <span class="mono" id="session-id">IC-2026-1147</span></div>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="nav-section-label">WORKFLOW</div>
+        <a href="#" class="nav-item active" data-page="dashboard" data-tooltip="Dashboard"><span
+            class="nav-icon">📊</span><span>Dashboard</span></a>
+        <a href="#" class="nav-item" data-page="profile" data-tooltip="Company Profile"><span
+            class="nav-icon">🏢</span><span>Company Profile</span></a>
+        <a href="#" class="nav-item" data-page="ingest" data-tooltip="Data Ingestor"><span
+            class="nav-icon">📁</span><span>Data Ingestor</span><span class="nav-badge" id="badge-ingest">0</span></a>
+        <a href="#" class="nav-item" data-page="analytics" data-tooltip="Analytics"><span
+            class="nav-icon">📈</span><span>Analytics</span></a>
+        <a href="#" class="nav-item" data-page="research" data-tooltip="Research Agent"><span
+            class="nav-icon">🔍</span><span>Research Agent</span><span class="nav-badge"
+            id="badge-research">0</span></a>
+        <a href="#" class="nav-item" data-page="insights" data-tooltip="Primary Insights"><span
+            class="nav-icon">💡</span><span>Primary Insights</span></a>
+        <a href="#" class="nav-item" data-page="stock" data-tooltip="Stock Analysis"><span
+            class="nav-icon">📉</span><span>Stock Analysis</span></a>
+        <a href="#" class="nav-item" data-page="ratios" data-tooltip="Ratio Classifications"><span
+            class="nav-icon">📐</span><span>Ratio Guide</span></a>
+        <a href="#" class="nav-item" data-page="report" data-tooltip="CAM Report"><span
+            class="nav-icon">📋</span><span>CAM Report</span><span class="status-dot" id="report-dot"></span></a>
+        <div class="nav-section-label" style="margin-top:16px">RISK INTELLIGENCE</div>
+        <a href="#" class="nav-item" data-page="ews" data-tooltip="Early Warning System"><span
+            class="nav-icon">🚨</span><span>Early Warning</span><span class="nav-badge nav-badge-red"
+            id="badge-ews">2</span></a>
+        <a href="#" class="nav-item" data-page="npa" data-tooltip="NPA Prediction Score"><span
+            class="nav-icon">🧠</span><span>NPA Prediction</span></a>
+        <a href="#" class="nav-item" data-page="covenant" data-tooltip="Covenant Breach Tracker"><span
+            class="nav-icon">📜</span><span>Covenant Tracker</span><span class="nav-badge nav-badge-red"
+            id="badge-covenant">3</span></a>
+        <div class="nav-section-label" style="margin-top:16px">LOAN MANAGEMENT</div>
+        <a href="#" class="nav-item" data-page="sanction" data-tooltip="Sanction Letter Generator"><span
+            class="nav-icon">🏛️</span><span>Sanction Letter</span></a>
+        <a href="#" class="nav-item" data-page="mpbf" data-tooltip="Working Capital / MPBF"><span
+            class="nav-icon">💰</span><span>Working Capital</span></a>
+        <a href="#" class="nav-item" data-page="peer" data-tooltip="Peer Benchmarking"><span
+            class="nav-icon">📡</span><span>Peer Benchmarking</span></a>
+        <div class="nav-section-label" style="margin-top:16px">COMPLIANCE</div>
+        <a href="#" class="nav-item" data-page="compliance" data-tooltip="Compliance Checklist"><span
+            class="nav-icon">✅</span><span>Compliance</span></a>
+        <a href="#" class="nav-item" data-page="vault" data-tooltip="Document Vault"><span
+            class="nav-icon">🗄️</span><span>Document Vault</span></a>
+        <a href="#" class="nav-item" data-page="crilc" data-tooltip="RBI CRILC Reporting"><span
+            class="nav-icon">🏛️</span><span>CRILC Report</span></a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="company-chip" id="sidebar-company"><span>No company selected</span></div>
+        <div class="progress-section">
+          <div class="progress-label">Appraisal Progress</div>
+          <div class="progress-bar">
+            <div class="progress-fill" id="global-progress" style="width:0%"></div>
+          </div>
+          <div class="progress-pct" id="global-pct">0%</div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Multi-Case Tab Bar -->
+    <div id="case-tabs" class="case-tabs">
+      <div class="case-tabs-inner" id="case-tabs-inner">
+        <button class="case-tab case-tab-add" onclick="addNewCase()">＋ New Case</button>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="sidebar-toggle-btn" id="sidebar-toggle-btn" onclick="toggleSidebar()"
+            title="Toggle Sidebar (Alt+S)">
+            <span class="toggle-icon">☰</span>
+          </button>
+          <h1 class="page-title" id="page-title">Dashboard</h1>
+          <p class="page-subtitle" id="page-subtitle">AI-Powered Corporate Credit Decisioning Engine</p>
+        </div>
+        <div class="topbar-right">
+          <div class="topbar-status">
+            <div class="pulse-dot"></div><span>AI Engine Online</span>
+          </div>
+          <button class="btn btn-ghost theme-toggle-btn" id="theme-toggle-btn" onclick="toggleTheme()"
+            title="Toggle Light/Dark Mode">🌙</button>
+          <button class="btn btn-ghost" onclick="openLoanModal()">🏦 Loan Calc</button>
+          <button class="btn btn-ghost" onclick="resetSession()">New Appraisal</button>
+        </div>
+      </header>
+
+      <div id="pages">
+        <!-- DASHBOARD -->
+        <div id="page-dashboard" class="page page-active">
+          <div class="workflow-stepper" id="workflow-stepper">
+            <div class="step active" data-step="0" onclick="navigateTo('profile')">
+              <div class="step-num">1</div>
+              <div class="step-label">Company Profile</div>
+            </div>
+            <div class="step-line"></div>
+            <div class="step" data-step="1" onclick="navigateTo('ingest')">
+              <div class="step-num">2</div>
+              <div class="step-label">Data Ingestor</div>
+            </div>
+            <div class="step-line"></div>
+            <div class="step" data-step="2" onclick="navigateTo('analytics')">
+              <div class="step-num">3</div>
+              <div class="step-label">Analytics</div>
+            </div>
+            <div class="step-line"></div>
+            <div class="step" data-step="3" onclick="navigateTo('research')">
+              <div class="step-num">4</div>
+              <div class="step-label">Research</div>
+            </div>
+            <div class="step-line"></div>
+            <div class="step" data-step="4" onclick="navigateTo('insights')">
+              <div class="step-num">5</div>
+              <div class="step-label">Insights</div>
+            </div>
+            <div class="step-line"></div>
+            <div class="step" data-step="5" onclick="navigateTo('report')">
+              <div class="step-num">6</div>
+              <div class="step-label">CAM Report</div>
+            </div>
+          </div>
+
+          <div class="hero-section">
+            <div class="hero-content">
+              <h2 class="hero-title">Next-Gen Credit Intelligence</h2>
+              <p class="hero-desc">Automate end-to-end Credit Appraisal Memo generation. Multi-format data ingestion,
+                web-scale research, financial analytics, and ML-explainable decisions — in minutes, not weeks.</p>
+              <div class="hero-cta">
+                <button class="btn btn-primary btn-lg" onclick="navigateTo('profile')">Start New Appraisal →</button>
+                <button class="btn btn-ghost btn-lg" onclick="loadDemo()">Load Demo Case</button>
+              </div>
+            </div>
+            <div class="hero-visual">
+              <div class="orbit-diagram">
+                <div class="orbit-center"><span>AI Core</span></div>
+                <div class="orbit-item o1">📄 PDFs</div>
+                <div class="orbit-item o2">📊 GST</div>
+                <div class="orbit-item o3">🏦 Bank</div>
+                <div class="orbit-item o4">🔍 Web</div>
+                <div class="orbit-item o5">⚖️ Legal</div>
+                <div class="orbit-item o6">🏭 Site</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="metrics-row">
+            <div class="metric-card">
+              <div class="metric-value count" data-target="0" id="m-docs">0</div>
+              <div class="metric-label">Documents Ingested</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value count" data-target="0" id="m-research">0</div>
+              <div class="metric-label">Research Findings</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value count" data-target="0" id="m-flags">0</div>
+              <div class="metric-label">Risk Flags Raised</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value" id="m-score">—</div>
+              <div class="metric-label">Credit Score</div>
+            </div>
+          </div>
+
+          <div class="pillars-grid">
+            <div class="pillar-card" onclick="navigateTo('ingest')">
+              <div class="pillar-icon">📁</div>
+              <h3>Pillar 1: Data Ingestor</h3>
+              <p>Multi-format ingestion — PDFs, GST, bank statements. Cross-leverage GST vs bank to detect circular
+                trading & revenue inflation.</p>
+              <div class="pillar-tags"><span class="tag">PDF Parsing</span><span class="tag">OCR</span><span
+                  class="tag">GST Analysis</span></div>
+            </div>
+            <div class="pillar-card" onclick="navigateTo('research')">
+              <div class="pillar-icon">🤖</div>
+              <h3>Pillar 2: Research Agent</h3>
+              <p>Web-scale secondary research on promoters, sector headwinds, MCA filings, and litigation. Qualitative
+                inputs auto-adjust risk scores.</p>
+              <div class="pillar-tags"><span class="tag">Web Crawl</span><span class="tag">MCA Filings</span><span
+                  class="tag">e-Courts</span></div>
+            </div>
+            <div class="pillar-card" onclick="navigateTo('report')">
+              <div class="pillar-icon">📋</div>
+              <h3>Pillar 3: CAM Generator</h3>
+              <p>Five-Cs scorecard with transparent, explainable scoring. Stress testing, loan calculator, and
+                downloadable Credit Appraisal Memo.</p>
+              <div class="pillar-tags"><span class="tag">Five-C Score</span><span class="tag">Explainable
+                  AI</span><span class="tag">PDF Export</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- COMPANY PROFILE PAGE -->
+        <div id="page-profile" class="page">
+        </div>
+
+        <!-- INGESTOR PAGE -->
+        <div id="page-ingest" class="page">
+          <div class="section-header">
+            <h2>Multi-Format Data Ingestor</h2>
+            <p>Upload financial documents for AI-powered extraction and cross-analysis</p>
+          </div>
+          <div class="company-input-row">
+            <div class="input-group"><label>Company Name</label><input type="text" id="company-name" class="form-input"
+                placeholder="e.g. Reliance Industries Ltd" oninput="state.company=this.value; updateCompanyUI()" />
+            </div>
+            <div class="input-group"><label>CIN / GSTIN</label><input type="text" id="company-cin" class="form-input"
+                placeholder="e.g. L21091MH2001PLC123456" /></div>
+            <div class="input-group"><label>Industry Sector</label>
+              <select id="company-sector" class="form-input">
+                <option>Manufacturing</option>
+                <option>NBFC / Financial Services</option>
+                <option>Infrastructure</option>
+                <option>IT / Technology</option>
+                <option>Pharma / Healthcare</option>
+                <option>Real Estate</option>
+                <option>FMCG / Retail</option>
+                <option>Metals &amp; Mining</option>
+              </select>
+            </div>
+          </div>
+          <div class="upload-grid">
+            <div class="upload-zone" id="upload-annual" onclick="simulateUpload('annual',this)">
+              <div class="upload-icon">📑</div>
+              <div class="upload-title">Annual Reports / Financial Statements</div>
+              <div class="upload-desc">PDF, scanned or digital</div>
+              <div class="upload-status" id="status-annual">Click to upload</div>
+            </div>
+            <div class="upload-zone" id="upload-gst" onclick="simulateUpload('gst',this)">
+              <div class="upload-icon">🧾</div>
+              <div class="upload-title">GST Returns (GSTR-3B / 2A)</div>
+              <div class="upload-desc">PDF or CSV format</div>
+              <div class="upload-status" id="status-gst">Click to upload</div>
+            </div>
+            <div class="upload-zone" id="upload-bank" onclick="simulateUpload('bank',this)">
+              <div class="upload-icon">🏦</div>
+              <div class="upload-title">Bank Statements (12 months)</div>
+              <div class="upload-desc">PDF or Excel format</div>
+              <div class="upload-status" id="status-bank">Click to upload</div>
+            </div>
+            <div class="upload-zone" id="upload-itr" onclick="simulateUpload('itr',this)">
+              <div class="upload-icon">📋</div>
+              <div class="upload-title">ITR / Tax Returns</div>
+              <div class="upload-desc">XML or PDF</div>
+              <div class="upload-status" id="status-itr">Click to upload</div>
+            </div>
+            <div class="upload-zone" id="upload-legal" onclick="simulateUpload('legal',this)">
+              <div class="upload-icon">⚖️</div>
+              <div class="upload-title">Legal Notices / Sanction Letters</div>
+              <div class="upload-desc">PDF format</div>
+              <div class="upload-status" id="status-legal">Click to upload</div>
+            </div>
+            <div class="upload-zone" id="upload-rating" onclick="simulateUpload('rating',this)">
+              <div class="upload-icon">⭐</div>
+              <div class="upload-title">Rating Agency Reports</div>
+              <div class="upload-desc">CRISIL, ICRA, CARE PDF</div>
+              <div class="upload-status" id="status-rating">Click to upload</div>
+            </div>
+          </div>
+          <div id="extraction-panel" class="extraction-panel hidden">
+            <div class="section-header">
+              <h3>🤖 AI Extraction Results</h3><span class="ai-badge">Gemini 1.5 Pro</span>
+            </div>
+            <div class="extraction-grid" id="extraction-results"></div>
+            <div class="gst-analysis-section" id="gst-analysis-section">
+              <h3>⚠️ GST vs Bank Statement Cross-Analysis</h3>
+              <div class="gst-table-wrapper">
+                <table class="gst-table">
+                  <thead>
+                    <tr>
+                      <th>Quarter</th>
+                      <th>GSTR-3B Turnover</th>
+                      <th>Bank Credits (Net)</th>
+                      <th>Variance</th>
+                      <th>Flag</th>
+                    </tr>
+                  </thead>
+                  <tbody id="gst-tbody"></tbody>
+                </table>
+              </div>
+              <div class="gst-flags" id="gst-flags"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ANALYTICS PAGE -->
+        <div id="page-analytics" class="page">
+          <div class="section-header">
+            <h2>Financial Analytics</h2>
+            <p>3-year performance trends, ratio analysis, and sector peer benchmarking</p>
+          </div>
+          <div class="analytics-empty hidden" id="analytics-empty">
+            <div class="empty-icon">📈</div>
+            <h3>No Financial Data Yet</h3>
+            <p>Load the demo or upload documents first</p>
+            <button class="btn btn-primary" onclick="loadDemo()">Load Demo →</button>
+          </div>
+          <div id="analytics-content">
+            <!-- Row 1 -->
+            <div class="chart-grid-2">
+              <div class="chart-card">
+                <h3 class="chart-title">Revenue & PAT Trend (₹ Cr)</h3><canvas id="revPatChart"></canvas>
+              </div>
+              <div class="chart-card">
+                <h3 class="chart-title">DSCR Trend & Benchmark</h3><canvas id="dscrChart"></canvas>
+              </div>
+            </div>
+            <!-- Row 2 -->
+            <div class="chart-grid-3">
+              <div class="chart-card">
+                <h3 class="chart-title">Debt-Equity Ratio</h3><canvas id="deChart"></canvas>
+              </div>
+              <div class="chart-card">
+                <h3 class="chart-title">Operating Cash Flow (₹ Cr)</h3><canvas id="ocfChart"></canvas>
+              </div>
+              <div class="chart-card">
+                <h3 class="chart-title">Working Capital Cycle (Days)</h3><canvas id="wccChart"></canvas>
+              </div>
+            </div>
+            <!-- Peer Benchmarking -->
+            <div class="chart-card chart-wide">
+              <h3 class="chart-title">Sector Peer Benchmarking — Key Ratios</h3>
+              <canvas id="peerChart" height="80"></canvas>
+            </div>
+            <!-- Ratio Table -->
+            <div class="ratio-table-card">
+              <h3>Key Financial Ratios — At a Glance</h3>
+              <div class="ratio-table-grid" id="ratio-table"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- RESEARCH PAGE -->
+        <div id="page-research" class="page">
+          <div class="section-header">
+            <h2>Digital Credit Manager — Research Agent</h2>
+            <p>AI-powered secondary research: news, MCA filings, litigation, sector headwinds</p>
+          </div>
+          <div class="research-controls">
+            <div class="search-box">
+              <span class="search-icon">🔍</span>
+              <input type="text" id="research-company" class="search-input"
+                placeholder="e.g. Reliance Industries Ltd" />
+              <button class="btn btn-primary" id="run-research-btn" onclick="runResearch()">Run Research
+                Agent</button>
+            </div>
+          </div>
+          <div class="research-toolbar">
+            <div class="research-categories">
+              <button class="cat-btn active" onclick="filterResearch('all',this)">All</button>
+              <button class="cat-btn" onclick="filterResearch('news',this)">📰 News</button>
+              <button class="cat-btn" onclick="filterResearch('mca',this)">🏛️ MCA</button>
+              <button class="cat-btn" onclick="filterResearch('legal',this)">⚖️ Litigation</button>
+              <button class="cat-btn" onclick="filterResearch('sector',this)">📈 Sector</button>
+              <button class="cat-btn" onclick="filterResearch('promoter',this)">👤 Promoter</button>
+            </div>
+            <div class="sentiment-bar-wrap" id="sentiment-bar-wrap" style="display:none">
+              <span class="sbar-label">Sentiment:</span>
+              <div class="sentiment-bar">
+                <div class="sbar-risk" id="sb-risk" style="width:0%"></div>
+                <div class="sbar-neutral" id="sb-neutral" style="width:0%"></div>
+                <div class="sbar-positive" id="sb-positive" style="width:0%"></div>
+              </div>
+              <span class="sbar-legend"><span class="dot-red"></span>Risk</span>
+              <span class="sbar-legend"><span class="dot-amber"></span>Neutral</span>
+              <span class="sbar-legend"><span class="dot-green"></span>Positive</span>
+            </div>
+          </div>
+          <div id="research-loading" class="research-loading hidden">
+            <div class="loading-animation">
+              <div class="loading-spinner"></div>
+              <div id="research-step">Initializing research agent...</div>
+            </div>
+          </div>
+          <div id="research-results" class="research-results"></div>
+          <div id="research-summary" class="research-summary hidden">
+            <h3>📊 Research Intelligence Summary</h3>
+            <div class="summary-grid" id="summary-grid"></div>
+          </div>
+        </div>
+
+        <!-- PRIMARY INSIGHTS PAGE -->
+        <div id="page-insights" class="page">
+          <div class="section-header">
+            <h2>Primary Insights Portal</h2>
+            <p>Credit Officer qualitative inputs — AI adjusts risk score in real-time</p>
+          </div>
+          <div class="insights-grid">
+            <div class="insight-form-panel">
+              <div class="insight-section">
+                <h3>🏭 Factory / Site Visit Observations</h3>
+                <div class="insight-templates">
+                  <button class="template-btn" onclick="insertTemplate('site','positive')">✅ Positive</button>
+                  <button class="template-btn" onclick="insertTemplate('site','negative')">⚠️ Risk</button>
+                  <button class="template-btn" onclick="insertTemplate('site','neutral')">➖ Neutral</button>
+                </div>
+                <textarea id="site-notes" class="insight-textarea"
+                  placeholder="e.g. Factory found operating at 40% capacity..." oninput="analyzeInsight()"></textarea>
+              </div>
+              <div class="insight-section">
+                <h3>👥 Management Interview Notes</h3>
+                <div class="insight-templates">
+                  <button class="template-btn" onclick="insertTemplate('mgmt','positive')">✅ Positive</button>
+                  <button class="template-btn" onclick="insertTemplate('mgmt','negative')">⚠️ Risk</button>
+                </div>
+                <textarea id="mgmt-notes" class="insight-textarea"
+                  placeholder="e.g. Management provided clear rationale for loan..."
+                  oninput="analyzeInsight()"></textarea>
+              </div>
+              <div class="insight-section">
+                <h3>📄 Additional Observations</h3>
+                <textarea id="other-notes" class="insight-textarea"
+                  placeholder="Any other relevant observations, ESG notes..." oninput="analyzeInsight()"></textarea>
+              </div>
+              <button class="btn btn-primary btn-full" onclick="saveInsights()">Save &amp; Apply to Score</button>
+            </div>
+            <div class="insight-impact-panel">
+              <h3>📉 Real-time Score Impact</h3>
+              <div class="base-score-card">
+                <div class="score-label">Base Score (Documents + Research)</div>
+                <div class="score-value" id="base-score-display">68</div>
+                <div class="score-grade" id="base-grade-display">B</div>
+              </div>
+              <div class="impact-items" id="impact-items">
+                <div class="impact-placeholder">Start typing to see real-time AI analysis...</div>
+              </div>
+              <div class="adjusted-score-card hidden" id="adjusted-score-card">
+                <div class="score-label">Adjusted Score (After Insights)</div>
+                <div class="score-value" id="adj-score-display">68</div>
+                <div class="score-grade" id="adj-grade-display">B</div>
+              </div>
+              <canvas id="fiveCRadar" height="220"></canvas>
+              <div class="ai-explanation hidden" id="insights-explanation"></div>
+            </div>
+          </div>
+        </div>
+
+
+        <!-- STOCK ANALYSIS PAGE -->
+        <div id="page-stock" class="page">
+          <div class="section-header-row">
+            <div>
+              <h2>Stock Analysis</h2>
+              <p>Listed equity performance, technicals & institutional activity</p>
+            </div>
+            <div class="report-actions">
+              <button class="btn btn-ghost" onclick="refreshStock()">🔄 Refresh Data</button>
+            </div>
+          </div>
+          <!-- Ticker Strip -->
+          <div class="stock-ticker-strip" id="stock-ticker-strip"></div>
+          <!-- Price Header -->
+          <div class="stock-price-header" id="stock-price-header"></div>
+          <!-- Main chart -->
+          <div class="chart-card" style="height:320px;margin-bottom:20px">
+            <div class="chart-title" id="stock-chart-title">1-Year Price Chart</div>
+            <canvas id="stockPriceChart" height="260"></canvas>
+          </div>
+          <!-- Metrics grid -->
+          <div class="stock-metrics-grid" id="stock-metrics-grid"></div>
+          <!-- Technicals + Holdings -->
+          <div class="stock-bottom-row">
+            <div class="chart-card stock-technicals" id="stock-technicals"></div>
+            <div class="chart-card stock-holdings" id="stock-holdings"></div>
+          </div>
+        </div>
+
+        <!-- RATIO CLASSIFICATIONS PAGE -->
+        <div id="page-ratios" class="page">
+          <div class="section-header-row">
+            <div>
+              <h2>Ratio Classifications Guide</h2>
+              <p>All financial ratios grouped by category — with formulas, company values &amp; benchmarks</p>
+            </div>
+          </div>
+          <div class="ratio-class-intro">
+            <div class="rci-node root">📊 Classifications of Ratios</div>
+          </div>
+          <div class="ratio-class-grid" id="ratio-class-grid"></div>
+        </div>
+
+        <!-- CAM REPORT PAGE -->
+        <div id="page-report" class="page">
+          <div class="section-header-row">
+            <div>
+              <h2>Credit Appraisal Memo (CAM)</h2>
+              <p>AI-generated, explainable credit decision</p>
+            </div>
+            <div class="report-actions">
+              <button class="btn btn-ghost" onclick="openStressModal()">🧪 Stress Test</button>
+              <button class="btn btn-ghost" onclick="openLoanModal()">🏦 Loan Calc</button>
+              <button class="btn btn-ghost" onclick="exportCAMPDF()">📄 Export PDF</button>
+              <button class="btn btn-ghost" onclick="printCAM()">🖨️ Print</button>
+              <button class="btn btn-primary" onclick="generateFullCAM()">Generate Full CAM ✨</button>
+            </div>
+          </div>
+          <div id="report-content">
+            <div class="empty-report" id="empty-report">
+              <div class="empty-icon">📋</div>
+              <h3>No Appraisal Data Yet</h3>
+              <p>Complete the workflow steps first, or load the demo case.</p>
+              <button class="btn btn-primary" onclick="loadDemo()">Load Demo Case →</button>
+            </div>
+            <div id="cam-full" class="cam-report hidden"></div>
+          </div>
+        </div>
+
+        <!-- EARLY WARNING SYSTEM PAGE -->
+        <div id="page-ews" class="page">
+          <div class="section-header-row">
+            <div>
+              <h2>Early Warning System (EWS)</h2>
+              <p>Auto-flag accounts for DSCR drops, overdue payments & sector stress signals</p>
+            </div>
+            <div class="report-actions"><button class="btn btn-ghost"
+                onclick="toast('EWS Alert','Alert sent to credit monitoring team','success')">📧 Send
+                Alert</button><button class="btn btn-primary" onclick="renderEWSPage()">🔄 Refresh Signals</button>
+            </div>
+          </div>
+          <div id="ews-content"></div>
+        </div>
+
+        <!-- NPA PREDICTION PAGE -->
+        <div id="page-npa" class="page">
+          <div class="section-header">
+            <h2>NPA Prediction Score</h2>
+            <p>ML-style probability score (0–100%) that the account goes NPA in 12 months</p>
+          </div>
+          <div id="npa-content"></div>
+        </div>
+
+        <!-- COVENANT TRACKER PAGE -->
+        <div id="page-covenant" class="page">
+          <div class="section-header">
+            <h2>Covenant Breach Tracker</h2>
+            <p>Monitor all financial & non-financial covenants — breach status, cure periods, and required actions</p>
+          </div>
+          <div id="covenant-content"></div>
+        </div>
+
+        <!-- SANCTION LETTER PAGE -->
+        <div id="page-sanction" class="page">
+          <div class="section-header">
+            <h2>Sanction Letter Generator</h2>
+            <p>Auto-generate the full sanction letter with terms, covenants, and conditions — one-click export</p>
+          </div>
+          <div id="sanction-content"></div>
+        </div>
+
+        <!-- MPBF / WORKING CAPITAL PAGE -->
+        <div id="page-mpbf" class="page">
+          <div class="section-header">
+            <h2>Working Capital Assessment (MPBF)</h2>
+            <p>Maximum Permissible Bank Finance calculator with Tandon Committee norms</p>
+          </div>
+          <div id="mpbf-content"></div>
+        </div>
+
+        <!-- PEER BENCHMARKING PAGE -->
+        <div id="page-peer" class="page">
+          <div class="section-header">
+            <h2>Peer Benchmarking Dashboard</h2>
+            <p>Compare borrower ratios vs. top 3 sector peers — multi-dimensional analysis</p>
+          </div>
+          <div id="peer-content"></div>
+        </div>
+
+        <!-- COMPLIANCE CHECKLIST PAGE -->
+        <div id="page-compliance" class="page">
+          <div class="section-header">
+            <h2>Pre-Disbursal Compliance Checklist</h2>
+            <p>Track KYC, legal opinion, ROC search, and all mandatory pre-disbursement requirements</p>
+          </div>
+          <div id="compliance-content"></div>
+        </div>
+
+        <!-- DOCUMENT VAULT PAGE -->
+        <div id="page-vault" class="page">
+          <div class="section-header">
+            <h2>Document Vault</h2>
+            <p>Upload and track all required documents — Balance Sheet, ITR, GST returns, MCA cert...</p>
+          </div>
+          <div id="vault-content"></div>
+        </div>
+
+        <!-- CRILC PAGE -->
+        <div id="page-crilc" class="page">
+          <div class="section-header">
+            <h2>RBI CRILC Reporting</h2>
+            <p>Central Repository of Information on Large Credits — Quarterly submission preview</p>
+          </div>
+          <div id="crilc-content"></div>
+        </div>
+
+      </div><!-- /pages -->
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+  <script src="features2.js"></script>
+  <script src="features3.js"></script>
+  <script src="features4.js"></script>
+  <script src="features5.js"></script>
+  <script src="features6.js"></script>
+  <script src="features7.js"></script>
+  <script src="features8.js"></script>
+  <script src="features9.js"></script>
+</body>
+
+</html>
